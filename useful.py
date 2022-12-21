@@ -4,7 +4,7 @@ bl_info = {
     "name": "Useful BS",
     "description": "Addon with useful tools for Brawl Stars Editing",
     "author": "xXCooBloyXx",
-    "version": (1, 1),
+    "version": (1, 2),
     "blender": (3, 0, 0),
     "location": "View3D > Useful BS",
     "category": "Object"
@@ -28,6 +28,9 @@ class UsefulPanel(bpy.types.Panel):
 
         row = layout.row()
         row.operator("object.fix_names", text="Fix Names")
+
+        row = layout.row()
+        row.operator("object.fix_errors", text="Fix Errors")
 
         row = layout.row()
         row.label(text="UV Tools:")
@@ -77,18 +80,47 @@ class FixGlbUVOperator(bpy.types.Operator):
 		
         return {'FINISHED'}
 
+class FixErrorsOperator(bpy.types.Operator):
+    bl_idname = "object.fix_errors"
+    bl_label = "Fix Errors"
+    bl_description = "Fixes errors when you trying to convert dae to scw, example error on convert: 'Bad joint count for vertex', this option can fix it!"
+
+    def execute(self, context):
+        # Iterate through all the meshes in the scene
+        for obj in bpy.data.objects:
+            if obj.type == 'MESH':
+                # Go to weight paint mode and select the "limit total" option
+                bpy.ops.object.mode_set(mode='WEIGHT_PAINT')
+                bpy.ops.object.vertex_group_limit_total()
+                bpy.ops.object.mode_set(mode='OBJECT')
+
+                # Iterate through all the meshes without a material
+                for mesh in bpy.data.meshes:
+                    if not mesh.materials:
+                        # Assign a material to the mesh
+                        if bpy.data.materials:
+                            # Assign the first material in the scene to the mesh
+                            mesh.materials.append(bpy.data.materials[0])
+                        else:
+                            # Create a new material and assign it to the mesh
+                            mat = bpy.data.materials.new(name="Material")
+                            mesh.materials.append(mat)
+
+        return {'FINISHED'}
+
 def register():
     bpy.utils.register_class(UsefulPanel)
     bpy.utils.register_class(FixUVNamesOperator)
     bpy.utils.register_class(FixNamesOperator)
     bpy.utils.register_class(FixGlbUVOperator)
+    bpy.utils.register_class(FixErrorsOperator)
 
 def unregister():
     bpy.utils.unregister_class(UsefulPanel)
     bpy.utils.unregister_class(FixUVNamesOperator)
     bpy.utils.unregister_class(FixNamesOperator)
     bpy.utils.unregister_class(FixGlbUVOperator)
-
+    bpy.utils.unregister_class(FixErrorsOperator)
 
 if __name__ == "__main__":
     register()
