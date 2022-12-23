@@ -1,11 +1,13 @@
 import bpy
+import os
 
 bl_info = {
     "name": "Useful BS",
     "description": "Addon with useful tools for Brawl Stars Editing",
     "author": "xXCooBloyXx",
     "version": (1, 3),
-    "blender": (3, 0, 0)
+    "blender": (3, 0, 0),
+    "category": "3D View"
 }
 
 class UsefulPanel(bpy.types.Panel):
@@ -51,7 +53,8 @@ class UsefulAnimPanel(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type == 'ARMATURE'
+        obj = context.object
+        return obj and obj.type == 'ARMATURE' and obj.animation_data is not None
 
     def draw(self, context):
         layout = self.layout
@@ -74,6 +77,9 @@ class UsefulAnimPanel(bpy.types.Panel):
 
         row = layout.row()
         row.operator("object.bake_action", text="Bake Action")
+
+        row = layout.row()
+        row.operator("object.delete_nla", text="Delete All NLA Tracks")
 
 class FixUVNamesOperator(bpy.types.Operator):
     bl_idname = "object.fix_uv_names"
@@ -104,7 +110,7 @@ class FixGlbUVOperator(bpy.types.Operator):
     bl_description = "Fixes UV from glb models"
 
     def execute(self, context):
-        bpy.ops.object.editmode_toggle()
+        bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.context.area.ui_type = 'UV'
         bpy.context.space_data.pivot_point = 'CURSOR'
@@ -112,7 +118,7 @@ class FixGlbUVOperator(bpy.types.Operator):
         bpy.ops.transform.resize(value=(0.000244, 0.000244, 0.000244), orient_type='GLOBAL', orient_matrix=((1, 0, 0), (0, 1, 0), (0, 0, 1)), orient_matrix_type='GLOBAL', mirror=False, use_proportional_edit=False, proportional_edit_falloff='SMOOTH', proportional_size=1, use_proportional_connected=False, use_proportional_projected=False)
         bpy.ops.transform.translate(value=(0, 1, 0), orient_axis_ortho='X', orient_type='GLOBAL', orient_matrix=((1, 0, 0), (0, 1, 0), (0, 0, 1)), orient_matrix_type='GLOBAL', constraint_axis=(False, True, False), mirror=False, use_proportional_edit=False, proportional_edit_falloff='SMOOTH', proportional_size=1, use_proportional_connected=False, use_proportional_projected=False)
         bpy.context.area.ui_type = 'VIEW_3D'
-        bpy.ops.object.editmode_toggle()
+        bpy.ops.object.mode_set(mode='OBJECT')
         return {'FINISHED'}
 
 class ClearMatsOperator(bpy.types.Operator):
@@ -129,29 +135,36 @@ class ClearMatsOperator(bpy.types.Operator):
 class FixErrorsOperator(bpy.types.Operator):
     bl_idname = "object.fix_errors"
     bl_label = "Fix Errors"
-    bl_description = "Fixes errors when you trying to convert dae to scw, example error on convert: 'Bad joint count for vertex', this option can fix it!"
+    bl_description = "Fixes errors when you trying to convert dae to scw, example error on convert: 'Bad joint count for vertex', this option also fixes one bug - when dae2scw was succesfully, in game there is broken texture - this option can fix it!"
 
     def execute(self, context):
-        # Iterate through all the meshes in the scene
+        bpy.ops.object.select_by_type(type='MESH')
         for obj in bpy.data.objects:
             if obj.type == 'MESH':
-                # Go to weight paint mode and select the "limit total" option
-                bpy.ops.object.select_by_type(type='MESH')
                 bpy.ops.object.mode_set(mode='WEIGHT_PAINT')
-                bpy.ops.object.vertex_group_limit_total()
+                try:
+                    bpy.ops.object.vertex_group_limit_total()
+                except:
+                    pass
                 bpy.ops.object.mode_set(mode='OBJECT')
 
-                # Iterate through all the meshes without a material
                 for mesh in bpy.data.meshes:
                     if not mesh.materials:
-                        # Assign a material to the mesh
                         if bpy.data.materials:
-                            # Assign the first material in the scene to the mesh
                             mesh.materials.append(bpy.data.materials[0])
                         else:
-                            # Create a new material and assign it to the mesh
                             mat = bpy.data.materials.new(name="Material")
                             mesh.materials.append(mat)
+                bpy.ops.object.mode_set(mode='EDIT')
+
+                mesh = bpy.context.object.data
+
+                uv_maps = mesh.uv_layers
+
+                for uv_map in uv_maps:
+                    if not uv_map.active_render:
+                        mesh.uv_layers.remove(uv_map)
+                bpy.ops.object.mode_set(mode='OBJECT')
 
         return {'FINISHED'}
 
@@ -161,7 +174,6 @@ class FixFramesOperator(bpy.types.Operator):
     bl_description = "Changing frames to frames from current action"
 
     def execute(self, context):
-        # Iterate through all the meshes in the scene
         if hasattr(bpy.context, "object"):
             obj = bpy.context.object
             anim_data = obj.animation_data
@@ -178,7 +190,6 @@ class BakeActionOperator(bpy.types.Operator):
     bl_description = "Baking action - removing empty frames in animation"
 
     def execute(self, context):
-        # Iterate through all the meshes in the scene
         if hasattr(bpy.context, "object"):
             obj = bpy.context.object
             anim_data = obj.animation_data
@@ -186,9 +197,26 @@ class BakeActionOperator(bpy.types.Operator):
             if anim_data is not None and anim_data.action is not None:
                 action = anim_data.action
                 frame_range = action.frame_range
-        bpy.ops.object.posemode_toggle()
+        bpy.ops.object.mode_set(mode='POSE')
         bpy.ops.nla.bake(frame_start=0, frame_end=int(frame_range[1]), only_selected=False, visual_keying=True, clear_constraints=True, clear_parents=True, bake_types={'POSE'})
-        bpy.ops.object.posemode_toggle()
+        bpy.ops.object.mode_set(mode='OBJECT')
+        return {'FINISHED'}
+
+class DeleteNLA(bpy.types.Operator):
+    bl_idname = "object.delete_nla"
+    bl_label = "Delete All NLA Tracks"
+    bl_description = "By this you can import more than 1 .obj file!"
+
+    def execute(self, context):
+        bpy.context.area.ui_type = 'NLA_EDITOR'
+        try:
+            bpy.ops.anim.channels_select_all(action='SELECT')
+            bpy.ops.nla.select_all(action='SELECT')
+            bpy.ops.nla.tracks_delete()
+        except:
+            pass
+        bpy.context.area.ui_type = 'VIEW_3D'
+        bpy.ops.object.mode_set(mode='OBJECT')
         return {'FINISHED'}
 
 def register():
@@ -201,6 +229,7 @@ def register():
     bpy.utils.register_class(FixErrorsOperator)
     bpy.utils.register_class(FixFramesOperator)
     bpy.utils.register_class(BakeActionOperator)
+    bpy.utils.register_class(DeleteNLA)
 
 def unregister():
     bpy.utils.unregister_class(UsefulPanel)
@@ -212,6 +241,8 @@ def unregister():
     bpy.utils.unregister_class(FixErrorsOperator)
     bpy.utils.unregister_class(FixFramesOperator)
     bpy.utils.unregister_class(BakeActionOperator)
+    bpy.utils.unregister_class(DeleteNLA)
 
 if __name__ == "__main__":
     register()
+
