@@ -1,5 +1,5 @@
 #UsefulBS
-A blender addon which adds a lot of features into your modding world, for example: you can fix uv after importing uv, fix some errors in game and after converting
+A blender addon which adds a lot of features into your supercell games 3d modding world, for example: you can fix uv after importing uv, fix some errors in game and after converting
 
 How to use?
 1. Download latest release from https://github.com/xXCooBloyXx/usefulbs/releases/latest
