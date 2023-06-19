@@ -5,7 +5,7 @@ bl_info = {
     "name": "Useful BS",
     "description": "Addon with useful tools for Brawl Stars Editing",
     "author": "xXCooBloyXx",
-    "version": (1, 4),
+    "version": (1, 5),
     "blender": (3, 0, 0),
     "category": "3D View"
 }
